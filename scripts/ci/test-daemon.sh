@@ -1,5 +1,8 @@
 #!/bin/bash -ex
 
+# Exercise custom-effect routing without hardware or a D-Bus connection.
+PYTHONPATH="pylib:daemon" python3 -m unittest discover -s daemon/tests -p test_custom_effect_sync.py -v
+
 all_devices=$(ls pylib/openrazer/_fake_driver/*.cfg | wc -l)
 
 daemon_devices=$(PYTHONPATH="pylib:daemon" python3 -c "from openrazer.client import DeviceManager; mgr = DeviceManager(); print(len(mgr.devices))")

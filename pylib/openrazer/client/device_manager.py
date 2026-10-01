@@ -77,6 +77,7 @@ class DeviceManager(object):
         Enable or disable the syncing of effects between devices
 
         If sync is enabled, whenever an effect is set then it will be set on all other devices if the effect is available or a similar effect if it is not.
+        Custom matrix effects are excluded because their frame data is specific to each device.
 
         :param sync: Sync effects
         :type sync: bool

@@ -1272,7 +1272,10 @@ class RazerDevice(DBusService):
         if not self._disable_notifications:
             self.logger.debug("Sending observer message: %s", str(msg))
 
-            if self._effect_sync_propagate_up and self._parent is not None:
+            # Custom frames are device-specific and are not sent to peers. Keep
+            # their notifications local so they still stop this device's ripple.
+            is_custom_effect = len(msg) > 2 and msg[0] == 'effect' and msg[2] == 'setCustom'
+            if self._effect_sync_propagate_up and self._parent is not None and not is_custom_effect:
                 self._parent.notify_parent(msg)
 
             for observer in self._observer_list:
