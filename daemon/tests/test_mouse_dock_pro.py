@@ -15,7 +15,10 @@ from openrazer_daemon.dbus_services.dbus_methods import mamba
 from openrazer_daemon.hardware.accessory import RazerMouseDockPro
 from openrazer_daemon.hardware.mouse import (
     DockedMouseNotReady, RazerBasiliskV3ProDocked, RazerBasiliskV3ProWireless,
-    RazerNagaV2ProDocked,
+    RazerBasiliskV3Pro35KDocked, RazerBasiliskV3Pro35KWireless,
+    RazerBasiliskV3Pro35KPhantomGreenEditionDocked, RazerBasiliskV3Pro35KPhantomGreenEditionWireless,
+    RazerCobraHyperSpeedDocked, RazerCobraHyperSpeedWireless,
+    RazerCobraProDocked, RazerCobraProWireless, RazerNagaV2ProDocked,
 )
 
 
@@ -313,6 +316,40 @@ class DockRestoreTest(unittest.TestCase):
         self.assertIn('get_supported_poll_rates', self.mouse.METHODS)
         self.assertEqual(mamba.get_supported_poll_rates(self.mouse), [125, 500, 1000, 2000, 4000, 8000])
         self.assertNotIn(8000, RazerBasiliskV3ProWireless.POLL_RATES or [])
+        self.assertNotIn(8000, RazerNagaV2ProDocked.POLL_RATES)
+
+    def test_additional_dock_8k_profiles_keep_direct_modes_unchanged(self):
+        registry = RazerMouseDockPro._get_wireless_pid_registry()
+        dock = object.__new__(RazerMouseDockPro)
+        dock._is_closed = True
+        dock._get_wireless_pid_registry = Mock(return_value=registry)
+        for docked, wireless in (
+                (RazerBasiliskV3Pro35KDocked, RazerBasiliskV3Pro35KWireless),
+                (RazerBasiliskV3Pro35KPhantomGreenEditionDocked,
+                 RazerBasiliskV3Pro35KPhantomGreenEditionWireless),
+                (RazerCobraProDocked, RazerCobraProWireless),
+                (RazerCobraHyperSpeedDocked, RazerCobraHyperSpeedWireless)):
+            with self.subTest(model=docked.DEVICE_NAME):
+                self.assertIs(registry[wireless.USB_PID], docked)
+                dock.get_active_mouse_identity = Mock(return_value=(wireless.USB_PID, 'MOUSESERIAL'))
+                self.assertEqual(dock.get_child_devices(), [
+                    (docked, {'id_suffix': ':mouse', 'serial': 'MOUSESERIAL'}),
+                ])
+                self.assertEqual(docked.USB_PID, RazerMouseDockPro.USB_PID)
+                self.assertIn('get_supported_poll_rates', docked.METHODS)
+                self.assertEqual(docked.POLL_RATES, [125, 500, 1000, 2000, 4000, 8000])
+                self.assertNotIn(8000, wireless.POLL_RATES or [])
+                mouse = object.__new__(docked)
+                mouse._is_closed = True
+                mouse.logger = Mock()
+                mouse.poll_rate = 1000
+                mouse.get_driver_path = Mock(return_value='mouse_poll_rate')
+                driver_file = mock_open(read_data='8000\n')
+                with patch('openrazer_daemon.dbus_services.dbus_methods.mamba.open', driver_file):
+                    mamba.set_poll_rate(mouse, 8000)
+                    self.assertEqual(mamba.get_poll_rate(mouse), 8000)
+                driver_file().write.assert_called_once_with('8000')
+                self.assertEqual(mamba.get_supported_poll_rates(mouse), docked.POLL_RATES)
         self.assertNotIn(8000, RazerNagaV2ProDocked.POLL_RATES)
 
     def test_successful_8k_write_is_read_back_before_becoming_saved_state(self):
